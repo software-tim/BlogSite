@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  # Uncomment if you want manual trigger in GitHub UI:
+  # Uncomment for manual trigger:
   # workflow_dispatch:
 
 permissions:
@@ -58,3 +58,19 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: ./deploy
+
+      - name: 🔍 Verify app is live
+        run: |
+          echo "Checking app health at https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          for i in {1..10}; do
+            http_status=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net)
+            if [ "$http_status" -eq 200 ]; then
+              echo "✅ App is live! Status: $http_status"
+              exit 0
+            else
+              echo "Waiting for app... (Status: $http_status)"
+              sleep 5
+            fi
+          done
+          echo "❌ App did not respond with 200 OK after deployment."
+          exit 1
