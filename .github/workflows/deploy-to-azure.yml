@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-  # Uncomment to allow manual trigger from GitHub UI:
-  # workflow_dispatch:
+  # workflow_dispatch:  # Uncomment to allow manual trigger from GitHub UI
 
 permissions:
   id-token: write
@@ -30,7 +29,7 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: ✅ Clean install dependencies
+      - name: ✅ Install dependencies
         run: npm ci
 
       - name: 🛠️ Build Astro SSR app
@@ -39,12 +38,12 @@ jobs:
       - name: 🧹 Make startup.sh executable
         run: chmod +x startup.sh || true
 
-      - name: 📦 Prepare clean deployment package
+      - name: 📦 Prepare clean, flattened deployment package
         run: |
           echo "Cleaning deploy/ folder..."
           rm -rf deploy
           mkdir deploy
-          cp -r dist/* deploy/
+          rsync -a dist/ deploy/
           cp startup.sh deploy/
           cp package.json deploy/
           cp package-lock.json deploy/
