@@ -1,18 +1,9 @@
-name: Deploy Astro SSR to Azure App Service with OIDC
+name: Deploy Astro SSR to Azure App Service
 
 on:
   push:
     branches:
       - main
-
-permissions:
-  id-token: write
-  contents: read
-
-env:
-  AZURE_WEBAPP_NAME: TimBlogSite              # Your Azure Web App name
-  AZURE_RESOURCE_GROUP: blog-rg               # Your Azure Resource Group
-  AZURE_SUBSCRIPTION_ID: e78d1e98-5768-4c31-be79-de816d47cbb9 # Your Azure Subscription ID
 
 jobs:
   build-and-deploy:
@@ -22,30 +13,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: 18
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Astro SSR project
+      - name: Build Astro SSR app
         run: npm run build
-        # Ensure package.json has "build": "astro build"
-        # And astro.config.mjs uses @astrojs/node with output: 'server'
 
-      - name: Login to Azure using OIDC
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy Node SSR to Azure Web App
+      - name: Deploy Astro dist folder to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          app-name: TimBlogSite
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./dist
-
