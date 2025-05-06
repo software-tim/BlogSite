@@ -32,6 +32,16 @@ jobs:
       - name: Build Astro SSR app
         run: npm run build
 
+      - name: Make startup.sh executable
+        run: chmod +x startup.sh
+
+      - name: Prepare deployment folder
+        run: |
+          mkdir deploy
+          cp -r dist/* deploy/
+          cp startup.sh deploy/
+          cp package*.json deploy/
+
       - name: Login to Azure using OIDC
         uses: azure/login@v1
         with:
@@ -39,9 +49,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy SSR build folder
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ./dist
+          package: ./deploy
 
