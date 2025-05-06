@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  # Uncomment for manual trigger:
+  # Uncomment to allow manual trigger from GitHub UI:
   # workflow_dispatch:
 
 permissions:
@@ -14,6 +14,7 @@ permissions:
 env:
   AZURE_WEBAPP_NAME: TimBlogSite
   AZURE_SUBSCRIPTION_ID: e78d1e98-5768-4c31-be79-de816d47cbb9
+  AZURE_RESOURCE_GROUP: TimBlogSite_group
 
 jobs:
   build-and-deploy:
@@ -29,22 +30,27 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: ✅ Install dependencies
+      - name: ✅ Clean install dependencies
         run: npm ci
 
       - name: 🛠️ Build Astro SSR app
         run: npm run build
 
-      - name: 🧹 Make startup.sh executable (non-blocking)
+      - name: 🧹 Make startup.sh executable
         run: chmod +x startup.sh || true
 
-      - name: 📦 Prepare deployment package
+      - name: 📦 Prepare clean deployment package
         run: |
+          echo "Cleaning deploy/ folder..."
+          rm -rf deploy
           mkdir deploy
-          cp -r dist deploy/
+          cp -r dist/* deploy/
           cp startup.sh deploy/
           cp package.json deploy/
           cp package-lock.json deploy/
+
+      - name: 🧪 Debug: show deployed package.json
+        run: cat deploy/package.json
 
       - name: 🔐 Login to Azure using OIDC
         uses: azure/login@v1
@@ -59,7 +65,13 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: ./deploy
 
-      - name: 🔍 Verify app is live
+      - name: 📄 Stream startup logs from Azure
+        run: |
+          echo "Waiting for app to boot..."
+          sleep 15
+          az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --timeout 30
+
+      - name: 🔍 Verify app is live (auto-fail for rollback)
         run: |
           echo "Checking app health at https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
           for i in {1..10}; do
@@ -68,9 +80,9 @@ jobs:
               echo "✅ App is live! Status: $http_status"
               exit 0
             else
-              echo "Waiting for app... (Status: $http_status)"
+              echo "⏳ Waiting for app... (Status: $http_status)"
               sleep 5
             fi
           done
-          echo "❌ App did not respond with 200 OK after deployment."
+          echo "❌ App did not respond with 200 OK. Consider rollback."
           exit 1
