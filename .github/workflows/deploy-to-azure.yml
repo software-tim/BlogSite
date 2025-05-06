@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  # workflow_dispatch:  # Uncomment to allow manual deploy from GitHub UI
+  # workflow_dispatch:  # Uncomment to enable manual deploy from GitHub UI
 
 permissions:
   id-token: write
@@ -42,12 +42,14 @@ jobs:
         run: |
           rm -rf deploy
           mkdir deploy
-          rsync -a dist/ deploy/
-          cp startup.sh deploy/
-          cp package.json deploy/
-          cp package-lock.json deploy/
+          find dist -maxdepth 1 -mindepth 1 -exec cp -r {} deploy/ \;
+          cp startup.sh package.json package-lock.json deploy/
+          echo "Deploy package contents:"
+          ls -R deploy/
+          echo "package.json content:"
+          cat deploy/package.json
 
-      - name: Azure login via OIDC
+      - name: Login to Azure using OIDC
         uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -63,7 +65,9 @@ jobs:
       - name: Stream Azure startup logs (30s)
         run: |
           sleep 15
-          timeout 30s az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+          timeout 30s az webapp log tail \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
 
       - name: Verify app is live (auto-fail for rollback)
         run: |
@@ -71,12 +75,12 @@ jobs:
           for i in {1..10}; do
             http_status=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net)
             if [ "$http_status" -eq 200 ]; then
-              echo "App is live. Status: $http_status"
+              echo "✅ App is live. Status: $http_status"
               exit 0
             else
-              echo "Waiting... (Status: $http_status)"
+              echo "⏳ Waiting... Status: $http_status"
               sleep 5
             fi
           done
-          echo "App failed to respond with 200 OK."
+          echo "❌ App did not respond with 200 OK. Consider rollback."
           exit 1
