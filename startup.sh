@@ -1,4 +1,5 @@
 #!/bin/bash
+# dummy change to trigger the build
 
 # Exit on any error
 set -e
