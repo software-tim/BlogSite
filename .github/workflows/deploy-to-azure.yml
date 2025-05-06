@@ -1,9 +1,17 @@
-name: Deploy Astro SSR to Azure App Service
+name: Deploy Astro SSR to Azure with OIDC
 
 on:
   push:
     branches:
       - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_WEBAPP_NAME: TimBlogSite
+  AZURE_SUBSCRIPTION_ID: e78d1e98-5768-4c31-be79-de816d47cbb9
 
 jobs:
   build-and-deploy:
@@ -24,9 +32,16 @@ jobs:
       - name: Build Astro SSR app
         run: npm run build
 
-      - name: Deploy Astro dist folder to Azure Web App
+      - name: Login to Azure using OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy SSR build folder
         uses: azure/webapps-deploy@v2
         with:
-          app-name: TimBlogSite
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: ./dist
+
