@@ -1,11 +1,11 @@
 name: Deploy Astro SSR to Azure with OIDC
 
 on:
-#  workflow_dispatch:  # allows manual trigger from GitHub UI
-    push:
-      branches:
-        - main
-  
+  push:
+    branches:
+      - main
+  # Uncomment if you want manual trigger in GitHub UI:
+  # workflow_dispatch:
 
 permissions:
   id-token: write
@@ -20,37 +20,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: ✅ Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: ✅ Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: 'npm'
 
-      - name: Install dependencies
+      - name: ✅ Install dependencies
         run: npm ci
 
-      - name: Build Astro SSR app
+      - name: 🛠️ Build Astro SSR app
         run: npm run build
 
-      - name: Make startup.sh executable
+      - name: 🧹 Make startup.sh executable (non-blocking)
         run: chmod +x startup.sh || true
 
-      - name: Prepare deployment folder
+      - name: 📦 Prepare deployment package
         run: |
           mkdir deploy
           cp -r dist deploy/
-          cp startup.sh package*.json deploy/ || true
+          cp startup.sh deploy/
+          cp package.json deploy/
+          cp package-lock.json deploy/
 
-      - name: Login to Azure using OIDC
+      - name: 🔐 Login to Azure using OIDC
         uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Web App
+      - name: 🚀 Deploy to Azure Web App (SSR)
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
