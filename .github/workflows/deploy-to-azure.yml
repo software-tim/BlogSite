@@ -1,7 +1,7 @@
 name: Deploy Astro SSR to Azure with OIDC
 
 on:
-  workflow_dispatch:  # allows manual trigger from GitHub UI
+#  workflow_dispatch:  # allows manual trigger from GitHub UI
     push:
       branches:
         - main
