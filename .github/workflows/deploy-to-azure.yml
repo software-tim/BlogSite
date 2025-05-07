@@ -40,8 +40,9 @@ jobs:
       - name: Prepare deployment package
         run: |
           rm -rf deploy
-          mkdir deploy
-          cp -r dist/* deploy/ || echo "Warning: dist might be empty"
+          mkdir -p deploy/server
+          cp -r dist/client deploy/
+          cp dist/server/entry.mjs deploy/server/
           cp startup.sh package.json package-lock.json deploy/
           echo "Deploy package contents:"
           find deploy/ -type f
@@ -62,7 +63,9 @@ jobs:
       - name: Stream Azure startup logs
         run: |
           sleep 10
-          timeout 30s az webapp log tail             --name ${{ env.AZURE_WEBAPP_NAME }}             --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+          timeout 30s az webapp log tail \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
 
       - name: Verify app is live
         run: |
@@ -79,3 +82,4 @@ jobs:
           done
           echo "❌ App did not respond with 200 OK."
           exit 1
+
