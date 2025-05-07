@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  # workflow_dispatch:  # Uncomment to enable manual deploy from GitHub UI
 
 permissions:
   id-token: write
@@ -35,19 +34,17 @@ jobs:
       - name: Build Astro SSR app
         run: npm run build
 
-      - name: Make startup.sh executable
+      - name: Make startup script executable
         run: chmod +x startup.sh || true
 
       - name: Prepare deployment package
         run: |
           rm -rf deploy
           mkdir deploy
-          find dist -maxdepth 1 -mindepth 1 -exec cp -r {} deploy/ \;
+          cp -r dist/* deploy/ || echo "Warning: 'dist' folder is empty"
           cp startup.sh package.json package-lock.json deploy/
           echo "Deploy package contents:"
-          ls -R deploy/
-          echo "package.json content:"
-          cat deploy/package.json
+          find deploy/ -type f
 
       - name: Login to Azure using OIDC
         uses: azure/login@v1
@@ -62,14 +59,14 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: ./deploy
 
-      - name: Stream Azure startup logs (30s)
+      - name: Stream Azure startup logs
         run: |
-          sleep 15
+          sleep 10
           timeout 30s az webapp log tail \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
 
-      - name: Verify app is live (auto-fail for rollback)
+      - name: Verify app is live
         run: |
           echo "Checking app health at https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
           for i in {1..10}; do
@@ -82,5 +79,5 @@ jobs:
               sleep 5
             fi
           done
-          echo "❌ App did not respond with 200 OK. Consider rollback."
+          echo "❌ App did not respond with 200 OK."
           exit 1
