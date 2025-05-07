@@ -19,8 +19,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Ensure .gitattributes is configured
+        run: |
+          echo '* text=auto' >> .gitattributes
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -34,15 +38,11 @@ jobs:
       - name: Build Astro SSR app
         run: npm run build
 
-      - name: Make startup script executable
-        run: chmod +x startup.sh || true
-
-      - name: Prepare deployment package
+      - name: Prepare deployment folder using rsync
         run: |
           rm -rf deploy
-          mkdir -p deploy/server
-          cp -r dist/client deploy/
-          cp dist/server/entry.mjs deploy/server/
+          mkdir deploy
+          rsync -av dist/ deploy/
           cp startup.sh package.json package-lock.json deploy/
           echo "Deploy package contents:"
           find deploy/ -type f
@@ -82,4 +82,5 @@ jobs:
           done
           echo "❌ App did not respond with 200 OK."
           exit 1
+
 
