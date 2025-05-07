@@ -1,4 +1,4 @@
-name: Deploy Astro SSR to Azure with OIDC
+name: Deploy Astro SSR App to Azure
 
 on:
   push:
@@ -11,76 +11,55 @@ permissions:
 
 env:
   AZURE_WEBAPP_NAME: TimBlogSite
-  AZURE_SUBSCRIPTION_ID: e78d1e98-5768-4c31-be79-de816d47cbb9
   AZURE_RESOURCE_GROUP: TimBlogSite_group
+  AZURE_SUBSCRIPTION_ID: e78d1e98-5768-4c31-be79-de816d47cbb9
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Ensure .gitattributes is configured
-        run: |
-          echo '* text=auto' >> .gitattributes
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
-          cache: 'npm'
+    - name: Install dependencies
+      run: npm ci
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Build Astro SSR app
+      run: npm run build
 
-      - name: Build Astro SSR app
-        run: npm run build
+    - name: Convert Windows backslashes to Unix-style slashes in dist
+      run: |
+        find ./dist -type f -name "*.jpg" -o -name "*.png" | while read file; do
+          mv "$file" "$(echo "$file" | sed 's/\\/_/\//g')"
+        done
 
-      - name: Prepare deployment folder using rsync
-        run: |
-          rm -rf deploy
-          mkdir deploy
-          rsync -av dist/ deploy/
-          cp startup.sh package.json package-lock.json deploy/
-          echo "Deploy package contents:"
-          find deploy/ -type f
+    - name: Zip build output for deployment
+      run: |
+        cd dist
+        zip -r ../site.zip .
 
-      - name: Login to Azure using OIDC
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ./deploy
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        package: site.zip
 
-      - name: Stream Azure startup logs
-        run: |
-          sleep 10
-          timeout 30s az webapp log tail \
-            --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
-
-      - name: Verify app is live
-        run: |
-          echo "Checking app health at https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-          for i in {1..10}; do
-            http_status=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net)
-            if [ "$http_status" -eq 200 ]; then
-              echo "✅ App is live. Status: $http_status"
-              exit 0
-            else
-              echo "⏳ Waiting... Status: $http_status"
-              sleep 5
-            fi
-          done
-          echo "❌ App did not respond with 200 OK."
-          exit 1
-
-
+    - name: Stream logs for diagnostics
+      run: |
+        sleep 10
+        timeout 30s az webapp log tail \
+          --name $AZURE_WEBAPP_NAME \
+          --resource-group $AZURE_RESOURCE_GROUP
