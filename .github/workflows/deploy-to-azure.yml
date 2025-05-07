@@ -41,7 +41,7 @@ jobs:
         run: |
           rm -rf deploy
           mkdir deploy
-          cp -r dist/* deploy/ || echo "Warning: 'dist' folder is empty"
+          cp -r dist/* deploy/ || echo "Warning: dist might be empty"
           cp startup.sh package.json package-lock.json deploy/
           echo "Deploy package contents:"
           find deploy/ -type f
@@ -62,9 +62,7 @@ jobs:
       - name: Stream Azure startup logs
         run: |
           sleep 10
-          timeout 30s az webapp log tail \
-            --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+          timeout 30s az webapp log tail             --name ${{ env.AZURE_WEBAPP_NAME }}             --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
 
       - name: Verify app is live
         run: |
